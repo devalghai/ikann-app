@@ -1,0 +1,10 @@
+body{
+    background-color: whitesmoke;
+}
+
+#login-form{
+    padding-top:10%;
+}
+#signup-form{
+    padding-top: 5%;
+}
