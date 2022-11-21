@@ -58,6 +58,8 @@ class Card(db.Model,Resource):
     createdate = db.Column(db.String,nullable=False)
     deadline = db.Column(db.String,nullable=False)
     enddate = db.Column(db.String)
+    cardtitle = db.Column(db.String)
+    cardcontent = db.Column(db.String)
 
     def get(self,cardid):
         card = Card.query.filter_by(cardid = cardid).first()
@@ -66,7 +68,9 @@ class Card(db.Model,Resource):
                     "listid":card.listid,
                     "createdate":card.createdate,
                     "deadline":card.deadline,
-                    "enddate":card.enddate}
+                    "enddate":card.enddate,
+                    "cardtitle":card.cardtitle,
+                    "cardcontent":card.cardcontent}
 
 
 
@@ -101,5 +105,7 @@ class Listcard(Resource):
                             "listid":card.listid,
                             "createdate":card.createdate,
                             "deadline":card.deadline,
-                            "enddate":card.enddate})
+                            "enddate":card.enddate,
+                            "cardtitle":card.cardtitle,
+                            "cardcontent":card.cardcontent})
         return response

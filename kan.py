@@ -6,7 +6,14 @@ from flask import render_template
 
 @app.route("/")
 def index():
-    return render_template('index.html')
+    card = Card.query.filter_by(cardid = 1).first()
+    return render_template('index.html',a = card)
+
+
+@app.route("/board")
+def kanban():
+    return render_template('kanban.html')
+
 
 
 
