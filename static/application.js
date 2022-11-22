@@ -74,9 +74,9 @@ const Card = Vue.component('card',{
     props:['cardobj','cardselector','body'],
     template:
     `<div class="accordion">
-    <div class="accordion-item mb-3">
+    <div class="accordion-item mb-3" draggable="true" @dragstart="carddrag($event,cardobj)">
         <h2 class="accordion-header" id="accordion"> 
-            <button type="button" class="accordion-button  show collapse" data-bs-toggle="collapse" v-bind:data-bs-target="cardidele">{{ cardobj.cardtitle }}</button>
+            <button type="button" class="accordion-button  show collapse" data-bs-toggle="collapse" v-bind:data-bs-target="cardidele" style="background-color:#3976D3;color:white">{{ cardobj.cardtitle }}</button>
         </h2>
         <div class="accordion-collapse  show collapse" v-bind:id="cardselector">
             <div class="accordion-body">
@@ -108,8 +108,14 @@ methods:{
     deleteCard:function(cardid){
         console.log("Uda denge" + cardid)
     },
-    editCard:function(cardid){
+    editCard:function(){
         this.notEditing = false
+    },
+    carddrag:function(event,card){
+        event.dataTransfer.dropEffect = 'move'
+        event.dataTransfer.effectAllowed = 'move'
+        card = JSON.stringify(card)
+        event.dataTransfer.setData('text/plain', card)
     }
 },
 data:function(){
@@ -124,12 +130,13 @@ data:function(){
 const Kanban = Vue.component('kanban',{
     // props:['lists'],
     template:
-    `<div class="container-fluid w-75" id="kanban">
-        <div class="row">
-            <div class="col-2 shadow-sm" v-for="list in lists">
+    `
+    <div class="container-fluid ml-5" id="kanban">
+        <div class="row justify-content-center">
+            <div class="col-xl-2 col-lg-2 col-sm-12 col-md-2 col-xs-12 shadow-sm" v-for="list in lists" @drop.prevent="dropTarget($event,list.id)" @dragenter.prevent @dragover.prevent>
                 <ul class="nav nav-tabs">
                     <li class="nav-item">
-                    <a class="nav-link" href="#">{{ list.id }}</a>
+                    <a class="nav-link" href="#">{{ list.name }}</a>
                     </li>
                 </ul>
                 <card v-for="card in list.cards" :key=card.cardid :cardselector='card.cardtitle + card.cardid' :cardobj=card>
@@ -142,18 +149,41 @@ const Kanban = Vue.component('kanban',{
     </div>`,
 data:function(){
     return {
-        lists:[{id:0,cards:[{cardid:1,cardtitle:"title",cardcontent:"content"},{cardid:6,cardtitle:"title",cardcontent:"Ao kabhi haveli pe"},{cardid:7,cardtitle:"title",cardcontent:"content"}]},
-                {id:1,cards:[{cardid:2,cardtitle:"alag",cardcontent:"content"},{cardid:8,cardtitle:"alag",cardcontent:"content"}]},
-                {id:3,cards:[{cardid:3,cardtitle:"title",cardcontent:"content"}]},
-                {id:4,cards:[{cardid:4,cardtitle:"title",cardcontent:"content"}]},
-                {id:5,cards:[{cardid:5,cardtitle:"title",cardcontent:"content"},{cardid:9,cardtitle:"alag",cardcontent:"content"}]},
-            ]
+        lists:{}
     }
 },
 methods:{
     addCard:function(listid){
         console.log("Daal denge ji "+listid)
+    },
+    
+    dropTarget:function(event,newlistid){
+        var dropcard = event.dataTransfer.getData('text/plain')
+        dropcard = JSON.parse(dropcard)
+        const prevlistid = dropcard.listid
+        if (prevlistid != newlistid){
+        
+            this.lists[prevlistid].cards = this.lists[prevlistid].cards.filter(card => card.cardid != dropcard.cardid)
+            dropcard.listid = newlistid
+            this.lists[newlistid].cards.push(dropcard)
+        }
     }
+},
+async created(){
+
+    var userid = 2
+
+    try{
+        var lists = await (await fetch(`/list/user/${userid}`)).json()
+    }catch{}
+
+    var allcards = {}
+    for (let list of lists){
+        cards = await (await fetch(`/card/list/${list.listid}`)).json()
+        stage = {id:list.listid,cards:cards,name:list.listname}
+        allcards[list.listid] = stage
+    }
+    this.lists = allcards
 }
 })
 
