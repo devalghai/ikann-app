@@ -1,5 +1,7 @@
 from app import db
-from flask_restful import Resource
+from datetime import date,datetime,timedelta
+from flask_restful import Resource,reqparse
+
 
 
 class User(db.Model,Resource):
@@ -44,8 +46,14 @@ class List(db.Model,Resource):
                     "content":list.content}
 
 
+    def delete(self,listid):
 
-
+        try:
+            List.query.filter_by(listid = listid).delete()
+        except Exception as e:
+            db.session.rollback()
+        finally:
+            db.session.commit()
 
 
 
@@ -72,6 +80,35 @@ class Card(db.Model,Resource):
                     "cardtitle":card.cardtitle,
                     "cardcontent":card.cardcontent}
 
+
+    def put(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('listid')
+        args = parser.parse_args()
+        card = Card(   
+                    listid = args.get('listid'),
+                    createdate = date.today(),
+                    deadline = (date.today() + timedelta(days = 30)).isoformat(),
+                    enddate = "",
+                    cardtitle = "cardtitle",
+                    cardcontent = "cardcontent")
+
+        try: 
+            card = db.session.add(card)
+        except Exception as e:
+            db.session.rollback()
+        finally:
+            db.session.commit()
+        
+
+    def delete(self,cardid):
+        
+        try:
+            Card.query.filter_by(cardid = cardid).delete()
+        except Exception as e:
+            db.session.rollback()
+        finally:
+            db.session.commit()
 
 
 

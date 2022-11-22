@@ -19,7 +19,7 @@ def kanban():
 
 api.add_resource(User,"/user/<int:userid>")
 api.add_resource(List,"/list/<int:listid>")
-api.add_resource(Card,"/card/<int:cardid>")
+api.add_resource(Card,"/card/<int:cardid>","/card")
 api.add_resource(Userlist,"/list/user/<int:userid>")
 api.add_resource(Listcard,"/card/list/<int:listid>")
 

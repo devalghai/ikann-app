@@ -1,5 +1,6 @@
 Vue.use(VueRouter)
 
+
 const Home = Vue.component('login-page',{ 
     template: `
                 <div class="container-fluid" id="login-form">
@@ -78,7 +79,7 @@ const Card = Vue.component('card',{
         <h2 class="accordion-header" id="accordion"> 
             <button type="button" class="accordion-button  show collapse" data-bs-toggle="collapse" v-bind:data-bs-target="cardidele" style="background-color:#3976D3;color:white">{{ cardobj.cardtitle }}</button>
         </h2>
-        <div class="accordion-collapse  show collapse" v-bind:id="cardselector">
+        <div class="accordion-collapse collapse" v-bind:id="cardselector">
             <div class="accordion-body">
                 <div class="card" v-on:dblclick=editCard(cardobj.cardid)>
                 <p class="card-text" v-if="notEditing">{{ cardobj.cardcontent }}</p>
@@ -88,10 +89,10 @@ const Card = Vue.component('card',{
         </div>
         <div class="row">
         <div class="col-4">
-        <button class="btn mt-1" v-on:click="deleteCard(cardobj.cardid)"><i class="bi bi-archive"></i></button>
+        <button class="btn mt-1" v-on:click="deleteCard(cardobj.cardid)" id="deletecard"><i class="bi bi-archive"></i></button>
         </div>
         <div class="col-4">
-        <input class="form-check-input mt-3" data-toggle="tooltip" type="radio" id="completedradio" title="Mark Completed" v-on:change="something(cardobj.cardid)">
+        <input class="form-check-input mt-3" data-toggle="tooltip" type="checkbox" id="completedbox" title="Mark Completed" v-on:change="something(cardobj.cardid)">
         </div>
         </div>
     </div>
@@ -105,8 +106,17 @@ methods:{
     something:function(cardid){
         console.log(cardid)
     },
-    deleteCard:function(cardid){
-        console.log("Uda denge" + cardid)
+    deleteCard: async function(cardid){
+        const response = await fetch(`/card/${cardid}`,{
+            method: 'DELETE',
+            headers: {
+            'Content-type': 'application/json'
+            }            
+        })
+        
+        this.$parent.populatecards(2)
+        
+        
     },
     editCard:function(){
         this.notEditing = false
@@ -133,7 +143,8 @@ const Kanban = Vue.component('kanban',{
     `
     <div class="container-fluid ml-5" id="kanban">
         <div class="row justify-content-center">
-            <div class="col-xl-2 col-lg-2 col-sm-12 col-md-2 col-xs-12 shadow-sm" v-for="list in lists" @drop.prevent="dropTarget($event,list.id)" @dragenter.prevent @dragover.prevent>
+            <div  id="listcol" class="col-xl-2 col-lg-2 col-sm-12 col-md-2 col-xs-12 shadow-sm" 
+            v-for="list in lists" @drop.prevent="dropTarget($event,list.id)"  @dragenter.prevent @dragover.prevent >
                 <ul class="nav nav-tabs">
                     <li class="nav-item">
                     <a class="nav-link" href="#">{{ list.name }}</a>
@@ -153,8 +164,16 @@ data:function(){
     }
 },
 methods:{
-    addCard:function(listid){
-        console.log("Daal denge ji "+listid)
+     addCard: async function(listid){
+
+        const response = await fetch('/card', {
+            method: 'PUT',
+            headers: {
+              'Content-type': 'application/json'
+            },
+            body: JSON.stringify({listid:listid})
+          })
+          this.populatecards(2)
     },
     
     dropTarget:function(event,newlistid){
@@ -162,28 +181,44 @@ methods:{
         dropcard = JSON.parse(dropcard)
         const prevlistid = dropcard.listid
         if (prevlistid != newlistid){
-        
+            
+
             this.lists[prevlistid].cards = this.lists[prevlistid].cards.filter(card => card.cardid != dropcard.cardid)
             dropcard.listid = newlistid
             this.lists[newlistid].cards.push(dropcard)
         }
+    },
+
+    populatecards: async function(userid){
+                                try{
+                                    var lists = await (await fetch(`/list/user/${userid}`)).json()
+                                }
+                                catch{}
+
+                                var allcards = {}
+                                for (let list of lists){
+                                    var cards = await (await fetch(`/card/list/${list.listid}`)).json()
+                                    if (cards){
+                                    stage = { id : list.listid, cards : cards, name : list.listname}
+                                    allcards[list.listid] = stage}
+                                    else{
+                                        console.log(list)
+                                         fetch(`/list/${list.listid}`,{
+                                            method: 'DELETE',
+                                            headers: {'Content-type': 'application/json'}         
+                                        })
+                                    }
+                                }
+                                this.lists = allcards
+    },
+
+    hello:function(){
+        console.log("Hello")
     }
 },
 async created(){
 
-    var userid = 2
-
-    try{
-        var lists = await (await fetch(`/list/user/${userid}`)).json()
-    }catch{}
-
-    var allcards = {}
-    for (let list of lists){
-        cards = await (await fetch(`/card/list/${list.listid}`)).json()
-        stage = {id:list.listid,cards:cards,name:list.listname}
-        allcards[list.listid] = stage
-    }
-    this.lists = allcards
+    this.populatecards(2)
 }
 })
 
@@ -209,6 +244,19 @@ var app = new Vue({
             console.log(username)
             console.log(password)
             console.log(emailid)
+        },
+        dropcard: async function(event,listid){
+            var dropcard = event.dataTransfer.getData('text/plain')
+            dropcard = JSON.parse(dropcard)
+            cardid = dropcard.cardid
+            const response = await fetch(`/card/${cardid}`,{
+                method: 'DELETE',
+                headers: {
+                'Content-type': 'application/json'
+                }            
+            })
+            
+            this.$refs.kanban.populatecards(2)
         }
     }
 })

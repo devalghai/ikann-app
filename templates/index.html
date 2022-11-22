@@ -9,12 +9,14 @@
         <script src="https://unpkg.com/vue-router@3"></script>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" type="text/css"></link>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     </head>
     
-    <body>
+    <body >
+        <divs></div>
         <div id="vueapp">
         <!-- <router-view @login-submit="loginsubmit" @signup-submit="signupsubmit"></router-view> -->
-        <kanban></kanban>
+        <kanban ref="kanban"></kanban>
         </div>
     </body>
     <script src="{{ url_for('static',filename='application.js') }}"></script>
