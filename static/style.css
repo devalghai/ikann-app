@@ -25,10 +25,16 @@ body{
 
 #deletecard{
     color: red;
+    font-size: 18px;
+    padding-bottom: 5px;
 }
 
 #completedbox:checked{
-    background-color:greenyellow 
+    background-color:#3976D3
+}
+
+#completedbox{
+    padding-bottom: 5px;
 }
 
 
@@ -36,8 +42,18 @@ body{
     font-size: 12px;
 }
 
-
-
-#listcol{
-    z-index:10 ;
+#datetable p{
+    font-size: 12px;
+    font-weight: bold;
 }
+
+input[type=date]{
+    height:24px;
+    font-size: 12px;
+    padding-bottom: 5px;
+}
+
+textarea{
+    font-size: large;
+}
+

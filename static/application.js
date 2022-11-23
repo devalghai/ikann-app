@@ -75,42 +75,72 @@ const Card = Vue.component('card',{
     props:['cardobj'],
     template:
     `<div class="accordion">
-    <div class="accordion-item mb-3" draggable="true" @dragstart="carddrag($event,cardobj)">
-        <h2  v-if="titleediting" class="accordion-header" id="accordion" @dblclick="edititle" > 
-            <button type="button" class="accordion-button  show collapse" data-bs-toggle="collapse" v-bind:data-bs-target="cardidele" style="background-color:#3976D3;color:white">{{ newtitle }}</button>
-        </h2>
-        <input type="text" v-else class="form-control" v-model=newtitle @dblclick="edititle">
-        <div class="accordion-collapse collapse" v-bind:id="cardselector">
-            <div class="accordion-body">
-                <div class="card" @dblclick=editCard>
-                <p class="card-text" v-if="contentediting">{{ newcontent }}</p>
-                <textarea type=text class="form-control" v-else v-model="newcontent"></textarea>
+        <div class="accordion-item mb-3" draggable="true" @dragstart="carddrag($event,cardobj)">
+            <h2  v-if="titleediting" class="accordion-header" id="accordion" @dblclick="edititle" > 
+                <button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" v-bind:data-bs-target="cardidele" 
+                :style="[checkbox ? {'background-color':'#3976D3'} : overdue ? {'background-color':'#800000'} : {'background-color':'green'}]" style=color:white>{{ newtitle }}</button>
+            </h2>
+            <input type="text" v-else class="form-control" v-model=newtitle @dblclick="edititle" @keyup.enter="edititle">
+            <div class="accordion-collapse collapse" v-bind:id="cardselector">
+                <div class="accordion-body">
+                    <div class="card" @dblclick=editCard @keyup.enter=editCard>
+                        <p class="card-text m-2" v-if="contentediting">{{ newcontent }}</p>
+                        <textarea type=text class="form-control" v-else v-model="newcontent"></textarea>
+                    </div>
+                    <div class="row mt-3 text-center">
+                        <div class="col-4" id="datetable">
+                        <p>Created {{ cardobj.createdate }}</p>
+                        </div>
+                        <div class="col-4" id="datetable">
+                        <p>Deadline {{ newdeadline }}</p>
+                        </div>
+                        <div class="col-4" id="datetable">
+                        <p>Completed {{ cardobj.enddate }}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-3">
+                        <button class="btn" v-on:click="deleteCard" id="deletecard"><i class="bi bi-trash"></i></button> 
+                        </div>
+                        <div class="col-6">
+                        <input type=date class="form-control mt-2" v-model=newdeadline> 
+                        </div>
+                        <div class="col-3">
+                        <input class="form-check-input mt-3" data-toggle="tooltip" type="checkbox" id="completedbox" 
+                            title="Mark Completed" v-model=checkbox :checked="checkbox"> 
+                        </div>
+                    </div>
+                    
                 </div>
             </div>
+
         </div>
-        <div class="row">
-        <div class="col-4">
-        <button class="btn mt-1" v-on:click="deleteCard(cardobj.cardid)" id="deletecard"><i class="bi bi-archive"></i></button>
-        </div>
-        <div class="col-4">
-        <input class="form-check-input mt-3" data-toggle="tooltip" type="checkbox" id="completedbox" title="Mark Completed" v-on:change="something(cardobj.cardid)">
-        </div>
-        </div>
-    </div>
-</div>`,
+    </div>`,
 
 computed:{
     cardidele:function(){
         return "#" + this.cardselector
+    },
+    checkbox:{
+        get(){return this.newenddate !== "-"},
+        set(newval){
+            this.cardobj.enddate = newval ? this.date : "-"
+            this.updatecard(this.cardobj)
+        }
+    },
+    overdue:function(){
+        return this.newdeadline < this.date
+    },
+    date:function(){
+        date = new Date().toLocaleDateString().split("/")
+        return `${date[2]}-${date[0]}-${date[1]}`
     }
 },
 
 methods:{
-    something:function(cardid){
-        console.log(cardid)
-    },
-
-    deleteCard: async function(cardid){
+    
+    deleteCard: async function(){
+        var cardid = this.cardobj.cardid
         const response = await fetch(`/card/${cardid}`,{
             method: 'DELETE',
             headers: {
@@ -161,16 +191,16 @@ data:function(){
         titleediting:true,
         newcontent:this.cardobj.cardcontent,
         newtitle:this.cardobj.cardtitle,
-        cardselector:"cardid" + this.cardobj.cardid
+        cardselector:"cardid" + this.cardobj.cardid,
+        newdeadline:this.cardobj.deadline,
+        newenddate:this.cardobj.enddate
         
     }
 },
-
 watch:{
-    contentediting:function(newvalue,oldvalue){
-        if(newvalue){
-            this.cardobj.cardcontent = this.newcontent
-        }
+    newdeadline:function(newvalue){
+        this.cardobj.deadline = newvalue
+        this.updatecard(this.cardobj)
     }
 }
 }
@@ -309,6 +339,11 @@ var app = new Vue({
     var allcards = {}
     for (let list of lists){
         var cards = await (await fetch(`/card/list/${list.listid}`)).json()
+        cards.sort(function(card1,card2){
+            if (card1.enddate < card2.enddate){return -1}
+            else if(card1.endate > card2.endate){return 1}
+            else return 0
+        })    
         if (cards){
         stage = { id : list.listid, cards : cards, name : list.listname}
         allcards[list.listid] = stage}

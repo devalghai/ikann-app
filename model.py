@@ -89,9 +89,9 @@ class Card(db.Model,Resource):
                     listid = args.get('listid'),
                     createdate = date.today(),
                     deadline = (date.today() + timedelta(days = 30)).isoformat(),
-                    enddate = "",
-                    cardtitle = "cardtitle",
-                    cardcontent = "cardcontent")
+                    enddate = "-",
+                    cardtitle = "",
+                    cardcontent = "")
 
         try: 
             card = db.session.add(card)
@@ -126,6 +126,7 @@ class Card(db.Model,Resource):
         card.enddate = args.get('enddate',"")
         card.cardtitle = args.get('cardtitle',"")
         card.cardcontent = args.get('cardcontent',"")
+        card.deadline = args.get('deadline')
 
         try:
             db.session.add(card)
