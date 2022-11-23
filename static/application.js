@@ -72,18 +72,19 @@ const Signup= Vue.component('signup-page',{
 
 
 const Card = Vue.component('card',{
-    props:['cardobj','cardselector','body'],
+    props:['cardobj'],
     template:
     `<div class="accordion">
     <div class="accordion-item mb-3" draggable="true" @dragstart="carddrag($event,cardobj)">
-        <h2 class="accordion-header" id="accordion"> 
-            <button type="button" class="accordion-button  show collapse" data-bs-toggle="collapse" v-bind:data-bs-target="cardidele" style="background-color:#3976D3;color:white">{{ cardobj.cardtitle }}</button>
+        <h2  v-if="titleediting" class="accordion-header" id="accordion" @dblclick="edititle" > 
+            <button type="button" class="accordion-button  show collapse" data-bs-toggle="collapse" v-bind:data-bs-target="cardidele" style="background-color:#3976D3;color:white">{{ newtitle }}</button>
         </h2>
+        <input type="text" v-else class="form-control" v-model=newtitle @dblclick="edititle">
         <div class="accordion-collapse collapse" v-bind:id="cardselector">
             <div class="accordion-body">
-                <div class="card" v-on:dblclick=editCard(cardobj.cardid)>
-                <p class="card-text" v-if="notEditing">{{ cardobj.cardcontent }}</p>
-                <input type=text class="form-control" v-else v-model="newcontent">
+                <div class="card" @dblclick=editCard>
+                <p class="card-text" v-if="contentediting">{{ newcontent }}</p>
+                <textarea type=text class="form-control" v-else v-model="newcontent"></textarea>
                 </div>
             </div>
         </div>
@@ -97,15 +98,18 @@ const Card = Vue.component('card',{
         </div>
     </div>
 </div>`,
+
 computed:{
     cardidele:function(){
         return "#" + this.cardselector
     }
 },
+
 methods:{
     something:function(cardid){
         console.log(cardid)
     },
+
     deleteCard: async function(cardid){
         const response = await fetch(`/card/${cardid}`,{
             method: 'DELETE',
@@ -114,49 +118,133 @@ methods:{
             }            
         })
         
-        this.$parent.populatecards(2)
-        
-        
+        populatecards(2)  
     },
+
     editCard:function(){
-        this.notEditing = false
+        this.contentediting = !this.contentediting
+        if (this.contentediting){
+            this.cardobj.cardcontent = this.newcontent
+            this.updatecard(this.cardobj)
+        }
     },
+
+    edititle:function(){
+        this.titleediting = !this.titleediting
+        if (this.titleediting){
+            this.cardobj.cardtitle = this.newtitle
+            this.updatecard(this.cardobj)
+        }
+    },
+
     carddrag:function(event,card){
         event.dataTransfer.dropEffect = 'move'
         event.dataTransfer.effectAllowed = 'move'
         card = JSON.stringify(card)
         event.dataTransfer.setData('text/plain', card)
-    }
+    },
+    updatecard: async function(newvalue){
+            await fetch(`/card/${this.cardobj.cardid}`,{
+            method: 'PUT',
+            headers: {
+              'Content-type': 'application/json'
+            },
+            body: JSON.stringify(newvalue)
+          })
+          populatecards(2)
+        }
 },
+
 data:function(){
     return {
-        notEditing:true,
-        newcontent:""
+        contentediting:true,
+        titleediting:true,
+        newcontent:this.cardobj.cardcontent,
+        newtitle:this.cardobj.cardtitle,
+        cardselector:"cardid" + this.cardobj.cardid
+        
     }
 },
+
+watch:{
+    contentediting:function(newvalue,oldvalue){
+        if(newvalue){
+            this.cardobj.cardcontent = this.newcontent
+        }
+    }
+}
 }
 )
 
+const List = Vue.component('list',{
+    props:["list"],
+    template:`
+    <div  class="col-xl-2 col-lg-2 col-sm-12 col-md-2 col-xs-12 shadow-sm" 
+            @drop.prevent="dropTarget($event)"  @dragenter.prevent @dragover.prevent :id="list.id">
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+            <div class="display-6 mb-4" id="title">{{ list.name }}</div>
+            </li>
+        </ul>
+        <card v-for="card in list.cards" :key=card.cardid :cardobj=card ref="card">
+        </card>
+        <div class="row">
+        <button type=button class="btn" v-on:click="addCard(list.id)"><i class="bi bi-plus-square"></i></button>
+        </div>
+    </div>  `
+,
+methods:{
+    dropTarget:function(event){
+        var dropcard = event.dataTransfer.getData('text/plain')
+        dropcard = JSON.parse(dropcard)
+        const prevlistid = dropcard.listid
+        const newlistid = this.list.id
+        if (prevlistid != newlistid){
+
+                dropcard.listid = newlistid
+                console.log(prevlistid)
+                console.log(newlistid)
+                console.log(dropcard)
+                this.updatecard(dropcard)
+        }
+    },
+
+    addCard: async function(listid){
+
+        const response = await fetch('/card', {
+            method: 'POST',
+            headers: {
+              'Content-type': 'application/json'
+            },
+            body: JSON.stringify({listid:listid})
+          })
+          populatecards(2)
+    },
+
+    updatecard: async function(newvalue){
+        await fetch(`/card/${newvalue.cardid}`,{
+        method: 'PUT',
+        headers: {
+          'Content-type': 'application/json'
+        },
+        body: JSON.stringify(newvalue)
+      })
+      populatecards(2)
+    }
+
+}
+})
+
 const Kanban = Vue.component('kanban',{
-    // props:['lists'],
     template:
     `
     <div class="container-fluid ml-5" id="kanban">
         <div class="row justify-content-center">
-            <div  id="listcol" class="col-xl-2 col-lg-2 col-sm-12 col-md-2 col-xs-12 shadow-sm" 
-            v-for="list in lists" @drop.prevent="dropTarget($event,list.id)"  @dragenter.prevent @dragover.prevent >
-                <ul class="nav nav-tabs">
-                    <li class="nav-item">
-                    <a class="nav-link" href="#">{{ list.name }}</a>
-                    </li>
-                </ul>
-                <card v-for="card in list.cards" :key=card.cardid :cardselector='card.cardtitle + card.cardid' :cardobj=card>
-                </card>
-                <div class="row">
-                <button type=button class="btn" v-on:click="addCard(list.id)"><i class="bi bi-plus-square"></i></button>
-                </div>
-            </div>   
-        </div>           
+            <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>
+            <list v-for="list in lists" v-bind:list=list v-bind:key=list.id></list>
+            <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>
+        </div>
+        <div class="row" style="min-height:200px" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>           
     </div>`,
 data:function(){
     return {
@@ -164,61 +252,11 @@ data:function(){
     }
 },
 methods:{
-     addCard: async function(listid){
-
-        const response = await fetch('/card', {
-            method: 'PUT',
-            headers: {
-              'Content-type': 'application/json'
-            },
-            body: JSON.stringify({listid:listid})
-          })
-          this.populatecards(2)
-    },
-    
-    dropTarget:function(event,newlistid){
-        var dropcard = event.dataTransfer.getData('text/plain')
-        dropcard = JSON.parse(dropcard)
-        const prevlistid = dropcard.listid
-        if (prevlistid != newlistid){
-            
-
-            this.lists[prevlistid].cards = this.lists[prevlistid].cards.filter(card => card.cardid != dropcard.cardid)
-            dropcard.listid = newlistid
-            this.lists[newlistid].cards.push(dropcard)
-        }
-    },
-
-    populatecards: async function(userid){
-                                try{
-                                    var lists = await (await fetch(`/list/user/${userid}`)).json()
-                                }
-                                catch{}
-
-                                var allcards = {}
-                                for (let list of lists){
-                                    var cards = await (await fetch(`/card/list/${list.listid}`)).json()
-                                    if (cards){
-                                    stage = { id : list.listid, cards : cards, name : list.listname}
-                                    allcards[list.listid] = stage}
-                                    else{
-                                        console.log(list)
-                                         fetch(`/list/${list.listid}`,{
-                                            method: 'DELETE',
-                                            headers: {'Content-type': 'application/json'}         
-                                        })
-                                    }
-                                }
-                                this.lists = allcards
-    },
-
-    hello:function(){
-        console.log("Hello")
-    }
+    deleteCard:function(event){
+        deletecard(event)}
 },
 async created(){
-
-    this.populatecards(2)
+    populatecards(2)
 }
 })
 
@@ -248,7 +286,7 @@ var app = new Vue({
         dropcard: async function(event,listid){
             var dropcard = event.dataTransfer.getData('text/plain')
             dropcard = JSON.parse(dropcard)
-            cardid = dropcard.cardid
+            var cardid = dropcard.cardid
             const response = await fetch(`/card/${cardid}`,{
                 method: 'DELETE',
                 headers: {
@@ -256,7 +294,46 @@ var app = new Vue({
                 }            
             })
             
-            this.$refs.kanban.populatecards(2)
+            populatecards(2)
         }
     }
 })
+
+
+ async function populatecards(userid){
+    try{
+        var lists = await (await fetch(`/list/user/${userid}`)).json()
+    }
+    catch{}
+
+    var allcards = {}
+    for (let list of lists){
+        var cards = await (await fetch(`/card/list/${list.listid}`)).json()
+        if (cards){
+        stage = { id : list.listid, cards : cards, name : list.listname}
+        allcards[list.listid] = stage}
+        else{
+            console.log(list)
+             fetch(`/list/${list.listid}`,{
+                method: 'DELETE',
+                headers: {'Content-type': 'application/json'}         
+            })
+        }
+    }
+    app.$refs.kanban.lists = allcards
+ }
+
+
+ async function deletecard(event){
+    var dropcard = event.dataTransfer.getData('text/plain')
+        dropcard = JSON.parse(dropcard)
+        var cardid = dropcard.cardid
+        const response = await fetch(`/card/${cardid}`,{
+            method: 'DELETE',
+            headers: {
+            'Content-type': 'application/json'
+            }            
+        })
+        populatecards(2)
+
+}

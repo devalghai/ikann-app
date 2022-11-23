@@ -81,7 +81,7 @@ class Card(db.Model,Resource):
                     "cardcontent":card.cardcontent}
 
 
-    def put(self):
+    def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument('listid')
         args = parser.parse_args()
@@ -109,6 +109,31 @@ class Card(db.Model,Resource):
             db.session.rollback()
         finally:
             db.session.commit()
+
+    def put(self,cardid):
+
+        parser = reqparse.RequestParser()
+        parser.add_argument('listid')
+        parser.add_argument('deadline')
+        parser.add_argument('enddate')
+        parser.add_argument('cardtitle')
+        parser.add_argument('cardcontent')
+        args = parser.parse_args()
+
+        card = Card.query.filter_by( cardid = cardid).first()
+
+        card.listid = args.get('listid',"")
+        card.enddate = args.get('enddate',"")
+        card.cardtitle = args.get('cardtitle',"")
+        card.cardcontent = args.get('cardcontent',"")
+
+        try:
+            db.session.add(card)
+        except Exception as e:
+            db.session.rollback()
+        finally:
+            db.session.commit()
+
 
 
 

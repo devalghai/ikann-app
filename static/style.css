@@ -1,3 +1,8 @@
+:root{
+    --cardheight:100px;
+}
+
+
 body{
     background-color: whitesmoke;
 }
@@ -12,7 +17,10 @@ body{
     margin-top: 10%;
 }
 .card{
-    min-height: 200px;
+    min-height: var(--cardheight);
+}
+.card textarea{
+    min-height: var(--cardheight);
 }
 
 #deletecard{
@@ -28,10 +36,7 @@ body{
     font-size: 12px;
 }
 
-.accordion-body input{
-    min-height:60px;
-    max-height: 100%;
-}
+
 
 #listcol{
     z-index:10 ;
