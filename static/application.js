@@ -213,7 +213,12 @@ const List = Vue.component('list',{
             @drop.prevent="dropTarget($event)"  @dragenter.prevent @dragover.prevent :id="list.id">
         <ul class="nav nav-tabs">
             <li class="nav-item">
-            <div class="display-6 mb-4" id="title">{{ list.name }}</div>
+            <div class="display-6 mb-1" id="title" v-if="listediting" @dblclick=editlist>{{ newlistname }}</div>
+            <input class='form-control' type=text v-else 
+            v-model=newlistname v-bind:placeholder="newlistname" @dblclick=editlist @keyup.enter=editlist maxlength="10">
+            <div class="h6 mb-4" @dblclick=editlist v-if="listediting">{{ newlistcontent }}</div>
+            <input class='form-control  mb-4' type=text v-else 
+            v-model=newlistcontent v-bind:placeholder="newlistcontent" @dblclick=editlist @keyup.enter=editlist maxlength="25">
             </li>
         </ul>
         <card v-for="card in list.cards" :key=card.cardid :cardobj=card ref="card">
@@ -224,17 +229,21 @@ const List = Vue.component('list',{
     </div>  `
 ,
 methods:{
+    editlist:function(){
+        this.listediting = !this.listediting
+        if (this.listediting){
+            this.list.name = this.newlistname
+            this.list.content = this.newlistcontent
+            this.updatelist(this.list)
+        }
+    },
     dropTarget:function(event){
         var dropcard = event.dataTransfer.getData('text/plain')
         dropcard = JSON.parse(dropcard)
         const prevlistid = dropcard.listid
         const newlistid = this.list.id
         if (prevlistid != newlistid){
-
                 dropcard.listid = newlistid
-                console.log(prevlistid)
-                console.log(newlistid)
-                console.log(dropcard)
                 this.updatecard(dropcard)
         }
     },
@@ -260,9 +269,27 @@ methods:{
         body: JSON.stringify(newvalue)
       })
       populatecards(2)
+    },
+
+    updatelist: async function(newvalue){
+        await fetch(`/list/${newvalue.id}`,{
+            method: 'PUT',
+            headers:{
+                'Content-type': 'application/json'
+            },
+            body: JSON.stringify(newvalue)
+        })
+        populatecards(2)
     }
 
-}
+},
+    data:function(){
+        return {
+            listediting:true,
+            newlistname:this.list.name,
+            newlistcontent:this.list.content
+        }
+    }
 })
 
 const Kanban = Vue.component('kanban',{
@@ -345,10 +372,9 @@ var app = new Vue({
             else return 0
         })    
         if (cards){
-        stage = { id : list.listid, cards : cards, name : list.listname}
+        stage = { id : list.listid, cards : cards, name : list.listname, content : list.content}
         allcards[list.listid] = stage}
         else{
-            console.log(list)
              fetch(`/list/${list.listid}`,{
                 method: 'DELETE',
                 headers: {'Content-type': 'application/json'}         

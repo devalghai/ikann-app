@@ -57,3 +57,6 @@ textarea{
     font-size: large;
 }
 
+.nav-tabs input{
+    height: 48px;
+}

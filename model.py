@@ -55,6 +55,28 @@ class List(db.Model,Resource):
         finally:
             db.session.commit()
 
+    def put(self,listid):
+        parser = reqparse.RequestParser()
+        parser.add_argument('content')
+        parser.add_argument('name')
+        args = parser.parse_args()
+
+        list = List.query.filter_by(listid = listid).first()
+        list.listname = args.get('name')
+        list.content = args.get('content')
+        try:
+            db.session.add(list)
+        except Exception as e:
+            db.session.rollback()
+        finally:
+            db.session.commit()
+
+        
+
+
+
+
+
 
 
 
@@ -88,7 +110,7 @@ class Card(db.Model,Resource):
         card = Card(   
                     listid = args.get('listid'),
                     createdate = date.today(),
-                    deadline = (date.today() + timedelta(days = 30)).isoformat(),
+                    deadline = date.today(),
                     enddate = "-",
                     cardtitle = "",
                     cardcontent = "")
