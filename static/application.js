@@ -209,7 +209,7 @@ watch:{
 const List = Vue.component('list',{
     props:["list"],
     template:`
-    <div  class="col-xl-2 col-lg-2 col-sm-12 col-md-2 col-xs-12 shadow-sm" 
+    <div  class="col-xl-2 col-lg-2 col-sm-12 col-md-2 col-xs-12 shadow-sm"  
             @drop.prevent="dropTarget($event)"  @dragenter.prevent @dragover.prevent :id="list.id">
         <ul class="nav nav-tabs">
             <li class="nav-item">
@@ -225,6 +225,7 @@ const List = Vue.component('list',{
         </card>
         <div class="row">
         <button type=button class="btn" v-on:click="addCard(list.id)"><i class="bi bi-plus-square"></i></button>
+        <button type=button class="btn" v-if=isempty style="color:red" title="Delete list" @click="deletelist"><i class="bi bi-folder-minus"></i></button>
         </div>
     </div>  `
 ,
@@ -280,6 +281,13 @@ methods:{
             body: JSON.stringify(newvalue)
         })
         populatecards(2)
+    },
+    deletelist:async function(){
+        await fetch(`/list/${this.list.id}`,{
+            method: 'DELETE',
+            headers: {'Content-type': 'application/json'}         
+        })
+        populatecards(2)
     }
 
 },
@@ -288,6 +296,12 @@ methods:{
             listediting:true,
             newlistname:this.list.name,
             newlistcontent:this.list.content
+        }
+    },
+    computed:{
+        isempty:function(){
+            return !this.list.cards
+            
         }
     }
 })
@@ -299,6 +313,9 @@ const Kanban = Vue.component('kanban',{
         <div class="row justify-content-center">
             <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>
             <list v-for="list in lists" v-bind:list=list v-bind:key=list.id></list>
+            <div class="col-xl-1 col-lg-1 col-sm-1 col-md-1 col-xs-1 shadow-sm" v-for="list in emptylist">
+            <button class='form-control' id='addlist' @click=addlist><i class="bi bi-plus-circle"></i></button>
+            </div>
             <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>
         </div>
         <div class="row" style="min-height:200px" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>           
@@ -309,11 +326,32 @@ data:function(){
     }
 },
 methods:{
+    addlist: async function(userid){
+        userid = 2
+        await fetch(`/list`,{
+            method: 'POST',
+            headers:{
+            'Content-type': 'application/json'
+            },
+            body:JSON.stringify({userid:userid})
+        })
+        populatecards(userid)
+    },
     deleteCard:function(event){
         deletecard(event)}
 },
 async created(){
     populatecards(2)
+},
+computed:{
+    emptyspace:function(){
+        return 5 - Object.keys(this.lists).length
+    },
+    emptylist:function(){
+        var empty = []
+        for (var i=0;i<this.emptyspace;i++){empty.push(null)}
+        return empty
+    }
 }
 })
 
@@ -358,29 +396,23 @@ var app = new Vue({
 
 
  async function populatecards(userid){
-    try{
+
         var lists = await (await fetch(`/list/user/${userid}`)).json()
-    }
-    catch{}
 
     var allcards = {}
     for (let list of lists){
         var cards = await (await fetch(`/card/list/${list.listid}`)).json()
-        cards.sort(function(card1,card2){
-            if (card1.enddate < card2.enddate){return -1}
-            else if(card1.endate > card2.endate){return 1}
-            else return 0
-        })    
+        
         if (cards){
-        stage = { id : list.listid, cards : cards, name : list.listname, content : list.content}
-        allcards[list.listid] = stage}
-        else{
-             fetch(`/list/${list.listid}`,{
-                method: 'DELETE',
-                headers: {'Content-type': 'application/json'}         
+            cards.sort(function(card1,card2){
+                if (card1.enddate < card2.enddate){return -1}
+                else if(card1.endate > card2.endate){return 1}
+                else return 0
             })
-        }
-    }
+         }
+        stage = { id : list.listid, cards : cards, name : list.listname, content : list.content}
+        allcards[list.listid] = stage
+            }
     app.$refs.kanban.lists = allcards
  }
 

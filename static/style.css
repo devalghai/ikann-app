@@ -60,3 +60,10 @@ textarea{
 .nav-tabs input{
     height: 48px;
 }
+
+#addlist{
+    height:100%;
+    width: 100%;
+    background-color:whitesmoke;
+    font-size: 20px;
+}

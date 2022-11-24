@@ -71,7 +71,21 @@ class List(db.Model,Resource):
         finally:
             db.session.commit()
 
-        
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('userid')
+        args = parser.parse_args()
+
+        list = List(listname = "New List",
+                    userid = args.get('userid'),
+                    content = "New Content")
+
+        try:
+            db.session.add(list)
+        except Exception as e:
+            db.session.rollback()
+        finally:
+            db.session.commit()
 
 
 
