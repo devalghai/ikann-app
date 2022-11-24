@@ -1,6 +1,8 @@
 Vue.use(VueRouter)
 
 
+
+
 const Home = Vue.component('login-page',{ 
     template: `
                 <div class="container-fluid" id="login-form">
@@ -27,7 +29,7 @@ const Home = Vue.component('login-page',{
     },
     methods:{
         login:function(){
-            this.$emit("login-submit",this.username,this.password)
+            console.log()
         }
     }
 })
@@ -47,7 +49,7 @@ const Signup= Vue.component('signup-page',{
                                 <input type="password" class="form-control mb-3" id="signupconfirmPassword" v-model="confirmpassword" placeholder="confirm password">
                                 <label for="email" class="form-label">Enter email</label>
                                 <input type="email" class="form-control mb-3" id="email" v-model="emailid" placeholder="someone@something.com">
-                                <button class="btn-primary btn" @click="login">Submit</button>
+                                <button class="btn-primary btn" @click="signup">Submit</button>
                                 <p class="pt-3">Already a user?</p>
                                 <p class="pt-0"><router-link to = "/">Login</router-link></p>
                             </div>
@@ -64,8 +66,11 @@ const Signup= Vue.component('signup-page',{
         }
     },
     methods:{
-        login:function(){
-            this.$emit("signup-submit",this.username,this.password,this.emailid)
+        signup: async function(){
+            if (this.password != this.confirmpassword){alert("Passwords do not match.")}
+            else{
+                    fetch(`/user`) 
+            }
         }
     }
 })
@@ -95,7 +100,7 @@ const Card = Vue.component('card',{
                         <p>Deadline {{ newdeadline }}</p>
                         </div>
                         <div class="col-4" id="datetable">
-                        <p>Completed {{ cardobj.enddate }}</p>
+                        <p>Completed {{ newenddate }}</p>
                         </div>
                     </div>
                     <div class="row">
@@ -124,8 +129,7 @@ computed:{
     checkbox:{
         get(){return this.newenddate !== "-"},
         set(newval){
-            this.cardobj.enddate = newval ? this.date : "-"
-            this.updatecard(this.cardobj)
+            this.newenddate = newval ? this.date : "-"
         }
     },
     overdue:function(){
@@ -200,6 +204,10 @@ data:function(){
 watch:{
     newdeadline:function(newvalue){
         this.cardobj.deadline = newvalue
+        this.updatecard(this.cardobj)
+    },
+    newenddate:function(newvalue){
+        this.cardobj.enddate = this.newenddate
         this.updatecard(this.cardobj)
     }
 }
@@ -313,7 +321,7 @@ const Kanban = Vue.component('kanban',{
         <div class="row justify-content-center">
             <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>
             <list v-for="list in lists" v-bind:list=list v-bind:key=list.id></list>
-            <div class="col-xl-1 col-lg-1 col-sm-1 col-md-1 col-xs-1 shadow-sm" v-for="list in emptylist">
+            <div class="col-xl-1 col-lg-1 col-sm-1 col-md-1 col-xs-1 shadow-sm  listdiv" v-for="list in emptylist">
             <button class='form-control' id='addlist' @click=addlist><i class="bi bi-plus-circle"></i></button>
             </div>
             <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>
@@ -340,7 +348,7 @@ methods:{
     deleteCard:function(event){
         deletecard(event)}
 },
-async created(){
+async beforeCreate(){
     populatecards(2)
 },
 computed:{
@@ -358,8 +366,7 @@ computed:{
 
 const routes = [
     { path: '/', component: Home },
-    { path: '/signup', component: Signup },
-    { path: '/kanban', componend: Kanban}
+    { path: '/signup', component: Signup }
   ]
 
 const router = new VueRouter({routes,mode: 'history',})
@@ -400,22 +407,24 @@ var app = new Vue({
         var lists = await (await fetch(`/list/user/${userid}`)).json()
 
     var allcards = {}
+
+    if(lists){
     for (let list of lists){
         var cards = await (await fetch(`/card/list/${list.listid}`)).json()
         
         if (cards){
             cards.sort(function(card1,card2){
                 if (card1.enddate < card2.enddate){return -1}
-                else if(card1.endate > card2.endate){return 1}
+                else if(card1.enddate > card2.enddate){return 1}
                 else return 0
             })
          }
         stage = { id : list.listid, cards : cards, name : list.listname, content : list.content}
         allcards[list.listid] = stage
-            }
+    }
     app.$refs.kanban.lists = allcards
  }
-
+ }
 
  async function deletecard(event){
     var dropcard = event.dataTransfer.getData('text/plain')
