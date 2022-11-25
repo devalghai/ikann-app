@@ -1,9 +1,11 @@
-from app import db
+from app import db,api
 from datetime import date,datetime,timedelta
 from flask_restful import Resource,reqparse
+from flask import jsonify, make_response
+import bcrypt
 
 
-
+@api.resource("/user/<int:userid>","/user")
 class User(db.Model,Resource):
     __tablename__ = "User"
     userid = db.Column(db.Integer,primary_key = True,autoincrement=True)
@@ -17,17 +19,51 @@ class User(db.Model,Resource):
         if user:
             return {"userid":user.userid,
                     "username":user.username,
-                    "password":user.password,
                     "email":user.email}
 
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('username')
+        parser.add_argument('password')
+        parser.add_argument('email')
+
+        args = parser.parse_args()
+
+        username = args.get('username')
+        password = args.get('password')
+        email = args.get('email')
+
+        user = User.query.filter_by(username = username).first()
+        if user:
+            response = make_response(jsonify({"message":"Username exists"}),409)
+            return response
+        
+        user = User.query.filter_by(email = email).first()
+        if user:
+            response = make_response(jsonify({"message":"Username exists"}),409)
+            return response
+        password = password.encode()
+        password = bcrypt.hashpw(password, bcrypt.gensalt())
+
+        user = User(username = username,
+                    password = password,
+                    email = email)
+
+
+        try:
+            db.session.add(user)
+        except Exception as e:
+            print(e)
+            db.session.rollback()
+        finally:
+            db.session.commit()
+        
 
 
 
 
 
-
-
-
+@api.resource("/list/<int:listid>","/list")
 class List(db.Model,Resource):
     __tablename__ = "List"
     listid = db.Column(db.Integer,primary_key=True,autoincrement=True)
@@ -94,7 +130,7 @@ class List(db.Model,Resource):
 
 
 
-
+@api.resource("/card/<int:cardid>","/card")
 class Card(db.Model,Resource):
     __tablename__ = "Card"
     cardid = db.Column(db.Integer,primary_key=True,autoincrement=True)
@@ -174,6 +210,8 @@ class Card(db.Model,Resource):
 
 
 
+
+@api.resource("/list/user/<int:userid>")
 class Userlist(Resource):
 
     def get(self,userid):
@@ -191,7 +229,7 @@ class Userlist(Resource):
 
 
 
-
+@api.resource("/card/list/<int:listid>")
 class Listcard(Resource):
 
     def get(self,listid):

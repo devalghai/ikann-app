@@ -1,6 +1,9 @@
 Vue.use(VueRouter)
 
 
+var store={
+    userid:null
+}
 
 
 const Home = Vue.component('login-page',{ 
@@ -11,9 +14,9 @@ const Home = Vue.component('login-page',{
                             <div class="card px-5 py-5 shadow-lg">
                                 <div class="display-1 text-center"><span style="color:blueviolet;">i</span>Kann</div>
                                 <label for="inputId" class="form-label">Enter username</label>
-                                <input type="text" class="form-control mb-3" id="inputId" v-model="username" placeholder="username">
+                                <input type="text" class="form-control mb-3" id="inputId" v-model="username" placeholder="username" @keyup.enter="login">
                                 <label for="inputPassword" class="form-label">Enter password</label>
-                                <input type="password" class="form-control mb-3" id="inputPassword" v-model="password" placeholder="password">
+                                <input type="password" class="form-control mb-3" id="inputPassword" v-model="password" placeholder="password" @keyup.enter="login">
                                 <button class="btn-primary btn" @click="login">Submit</button>
                                 <p class="pt-3">New to iKann?</p>
                                 <p class="pt-0"><router-link to = "/signup">Signup</router-link></p>
@@ -28,8 +31,26 @@ const Home = Vue.component('login-page',{
         }
     },
     methods:{
-        login:function(){
-            console.log()
+        login: async function(){
+            var response = await fetch('/authenticate',{
+                method:'PUT',
+                headers:{
+                    'Content-type':'application/json'
+                },
+                body:JSON.stringify({username:this.username,
+                                    password:this.password})})
+                                    
+
+            if(response.status === 200){
+                const data = await response.json()
+                if(data.token){
+                    this.$router.push(`/kanban/${data.userid}`)
+                }
+            }
+            else{
+                const data = await response.json()
+                alert(data.message)
+            }
         }
     }
 })
@@ -42,13 +63,13 @@ const Signup= Vue.component('signup-page',{
                             <div class="card px-5 py-5 shadow-lg">
                                 <div class="display-1 text-center"><span style="color:blueviolet;">i</span>Kann</div>
                                 <label for="signupId" class="form-label">Enter username</label>
-                                <input type="text" class="form-control mb-3" id="signupId" v-model="username" placeholder="username">
+                                <input type="text" class="form-control mb-3" id="signupId" v-model="username" placeholder="username" @keyup.enter="signup">
                                 <label for="signupPassword" class="form-label">Enter password</label>
-                                <input type="password" class="form-control mb-3" id="signupPassword" v-model="password" placeholder="password">
+                                <input type="password" class="form-control mb-3" id="signupPassword" v-model="password" placeholder="password" @keyup.enter="signup">
                                 <label for="signupconfirmPassword" class="form-label">Confirm password</label>
-                                <input type="password" class="form-control mb-3" id="signupconfirmPassword" v-model="confirmpassword" placeholder="confirm password">
+                                <input type="password" class="form-control mb-3" id="signupconfirmPassword" v-model="confirmpassword" placeholder="confirm password" @keyup.enter="signup">  
                                 <label for="email" class="form-label">Enter email</label>
-                                <input type="email" class="form-control mb-3" id="email" v-model="emailid" placeholder="someone@something.com">
+                                <input type="email" class="form-control mb-3" id="email" v-model="email" placeholder="someone@something.com" @keyup.enter="signup">
                                 <button class="btn-primary btn" @click="signup">Submit</button>
                                 <p class="pt-3">Already a user?</p>
                                 <p class="pt-0"><router-link to = "/">Login</router-link></p>
@@ -61,7 +82,7 @@ const Signup= Vue.component('signup-page',{
             username:"",
             password:"",
             confirmpassword:"",
-            emailid:""
+            email:""
 
         }
     },
@@ -69,8 +90,27 @@ const Signup= Vue.component('signup-page',{
         signup: async function(){
             if (this.password != this.confirmpassword){alert("Passwords do not match.")}
             else{
-                    fetch(`/user`) 
-            }
+                var created = await fetch(`/user`,{
+                    method: 'POST',
+                    headers:{
+                    'Content-type': 'application/json'
+                    },
+                    body:JSON.stringify({username:this.username,
+                                        password:this.password,
+                                        email:this.email})               
+                }).then(response => response.json())
+                .then(data => data);
+        
+        if(created){
+            alert(created["message"])
+        }
+        
+        else{
+            this.$router.push("/")
+        }        
+    }
+            
+
         }
     }
 })
@@ -81,26 +121,29 @@ const Card = Vue.component('card',{
     template:
     `<div class="accordion">
         <div class="accordion-item mb-3" draggable="true" @dragstart="carddrag($event,cardobj)">
-            <h2  v-if="titleediting" class="accordion-header" id="accordion" @dblclick="edititle" > 
-                <button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" v-bind:data-bs-target="cardidele" 
-                :style="[checkbox ? {'background-color':'#3976D3'} : overdue ? {'background-color':'#800000'} : {'background-color':'green'}]" style=color:white>{{ newtitle }}</button>
+            <h2  v-show="titleediting" class="accordion-header" id="accordion" @dblclick="edititle" > 
+                <button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" v-bind:data-bs-target="cardidele"
+                :style="[checkbox ? {'background-color':'#3976D3'} : overdue ? {'background-color':'#800000'} : {'background-color':'green'}]" style="color:white">{{ newtitle }}</button>
             </h2>
-            <input type="text" v-else class="form-control" v-model=newtitle @dblclick="edititle" @keyup.enter="edititle">
+            <input type="text" v-show="!titleediting" class="form-control" v-model=newtitle @dblclick="edititle" @keyup.enter="edititle">
             <div class="accordion-collapse collapse" v-bind:id="cardselector">
                 <div class="accordion-body">
                     <div class="card" @dblclick=editCard @keyup.enter=editCard>
-                        <p class="card-text m-2" v-if="contentediting">{{ newcontent }}</p>
+                        <p class="card-text m-2 h-6" v-if="contentediting">{{ newcontent }}</p>
                         <textarea type=text class="form-control" v-else v-model="newcontent"></textarea>
                     </div>
                     <div class="row mt-3 text-center">
                         <div class="col-4" id="datetable">
-                        <p>Created {{ cardobj.createdate }}</p>
+                        <h6>Created</h6>
+                        <p>{{ cardobj.createdate }}</p>
                         </div>
                         <div class="col-4" id="datetable">
-                        <p>Deadline {{ newdeadline }}</p>
+                        <h6>Deadline</h6>
+                        <p>{{ newdeadline }}</p>
                         </div>
                         <div class="col-4" id="datetable">
-                        <p>Completed {{ newenddate }}</p>
+                        <h6>Completed</h6>
+                        <p>{{ newenddate }}</p>
                         </div>
                     </div>
                     <div class="row">
@@ -136,7 +179,7 @@ computed:{
         return this.newdeadline < this.date
     },
     date:function(){
-        date = new Date().toLocaleDateString().split("/")
+        let date = new Date().toLocaleDateString().split("/")
         return `${date[2]}-${date[0]}-${date[1]}`
     }
 },
@@ -152,7 +195,7 @@ methods:{
             }            
         })
         
-        populatecards(2)  
+        populatecards(store.userid)  
     },
 
     editCard:function(){
@@ -185,7 +228,7 @@ methods:{
             },
             body: JSON.stringify(newvalue)
           })
-          populatecards(2)
+          populatecards(store.userid)
         }
 },
 
@@ -217,13 +260,13 @@ watch:{
 const List = Vue.component('list',{
     props:["list"],
     template:`
-    <div  class="col-xl-2 col-lg-2 col-sm-12 col-md-2 col-xs-12 shadow-sm"  
+    <div  class="col-xl-2 col-lg-6 col-sm-12 col-md-12 col-xs-12 shadow-sm"  
             @drop.prevent="dropTarget($event)"  @dragenter.prevent @dragover.prevent :id="list.id">
         <ul class="nav nav-tabs">
             <li class="nav-item">
             <div class="display-6 mb-1" id="title" v-if="listediting" @dblclick=editlist>{{ newlistname }}</div>
             <input class='form-control' type=text v-else 
-            v-model=newlistname v-bind:placeholder="newlistname" @dblclick=editlist @keyup.enter=editlist maxlength="10">
+            v-model=newlistname v-bind:placeholder="newlistname" @dblclick=editlist @keyup.enter=editlist maxlength="15">
             <div class="h6 mb-4" @dblclick=editlist v-if="listediting">{{ newlistcontent }}</div>
             <input class='form-control  mb-4' type=text v-else 
             v-model=newlistcontent v-bind:placeholder="newlistcontent" @dblclick=editlist @keyup.enter=editlist maxlength="25">
@@ -266,36 +309,36 @@ methods:{
             },
             body: JSON.stringify({listid:listid})
           })
-          populatecards(2)
+          populatecards(store.userid)
     },
 
     updatecard: async function(newvalue){
-        await fetch(`/card/${newvalue.cardid}`,{
+        const response = await fetch(`/card/${newvalue.cardid}`,{
         method: 'PUT',
         headers: {
           'Content-type': 'application/json'
         },
         body: JSON.stringify(newvalue)
       })
-      populatecards(2)
+      populatecards(store.userid)
     },
 
     updatelist: async function(newvalue){
-        await fetch(`/list/${newvalue.id}`,{
+        const response = await fetch(`/list/${newvalue.id}`,{
             method: 'PUT',
             headers:{
                 'Content-type': 'application/json'
             },
             body: JSON.stringify(newvalue)
         })
-        populatecards(2)
+        populatecards(store.userid)
     },
     deletelist:async function(){
-        await fetch(`/list/${this.list.id}`,{
+        const response = await fetch(`/list/${this.list.id}`,{
             method: 'DELETE',
             headers: {'Content-type': 'application/json'}         
         })
-        populatecards(2)
+        populatecards(store.userid)
     }
 
 },
@@ -315,6 +358,7 @@ methods:{
 })
 
 const Kanban = Vue.component('kanban',{
+    props:['userid'],
     template:
     `
     <div class="container-fluid ml-5" id="kanban">
@@ -324,6 +368,7 @@ const Kanban = Vue.component('kanban',{
             <div class="col-xl-1 col-lg-1 col-sm-1 col-md-1 col-xs-1 shadow-sm  listdiv" v-for="list in emptylist">
             <button class='form-control' id='addlist' @click=addlist><i class="bi bi-plus-circle"></i></button>
             </div>
+            
             <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>
         </div>
         <div class="row" style="min-height:200px" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>           
@@ -334,8 +379,8 @@ data:function(){
     }
 },
 methods:{
-    addlist: async function(userid){
-        userid = 2
+    addlist: async function(){
+        let userid = store.userid
         await fetch(`/list`,{
             method: 'POST',
             headers:{
@@ -343,13 +388,14 @@ methods:{
             },
             body:JSON.stringify({userid:userid})
         })
-        populatecards(userid)
+        populatecards(store.userid)
     },
     deleteCard:function(event){
         deletecard(event)}
 },
-async beforeCreate(){
-    populatecards(2)
+async mounted(){
+    store.userid = this.userid
+    populatecards(store.userid)
 },
 computed:{
     emptyspace:function(){
@@ -366,7 +412,8 @@ computed:{
 
 const routes = [
     { path: '/', component: Home },
-    { path: '/signup', component: Signup }
+    { path: '/signup', component: Signup },
+    { path: '/kanban/:userid' , component: Kanban,props : true}
   ]
 
 const router = new VueRouter({routes,mode: 'history',})
@@ -376,15 +423,6 @@ var app = new Vue({
     el:"#vueapp",
     router,
     methods:{
-        loginsubmit:function(username,password){
-            console.log(username)
-            console.log(password)
-        },
-        signupsubmit:function(username,password,emailid){
-            console.log(username)
-            console.log(password)
-            console.log(emailid)
-        },
         dropcard: async function(event,listid){
             var dropcard = event.dataTransfer.getData('text/plain')
             dropcard = JSON.parse(dropcard)
@@ -396,7 +434,7 @@ var app = new Vue({
                 }            
             })
             
-            populatecards(2)
+            populatecards(store.userid)
         }
     }
 })
@@ -419,11 +457,12 @@ var app = new Vue({
                 else return 0
             })
          }
-        stage = { id : list.listid, cards : cards, name : list.listname, content : list.content}
+        let stage = { id : list.listid, cards : cards, name : list.listname, content : list.content}
         allcards[list.listid] = stage
     }
-    app.$refs.kanban.lists = allcards
+    
  }
+    app.$refs.kanban.lists = allcards
  }
 
  async function deletecard(event){
@@ -436,6 +475,6 @@ var app = new Vue({
             'Content-type': 'application/json'
             }            
         })
-        populatecards(2)
+        populatecards(store.userid)
 
 }

@@ -7,12 +7,6 @@ body{
     background-color: whitesmoke;
 }
 
-#login-form{
-    padding-top:10%;
-}
-#signup-form{
-    padding-top: 5%;
-}
 #vueapp{
     margin-top: 10%;
 }
@@ -42,14 +36,19 @@ body{
     font-size: 12px;
 }
 
-#datetable p{
+#datetable  p{
+    font-size: 12px;
+    font-weight: bold;
+}
+#datetable h6{
     font-size: 12px;
     font-weight: bold;
 }
 
+
 input[type=date]{
     height:24px;
-    font-size: 12px;
+    font-size: 11px;
     padding-bottom: 5px;
 }
 
@@ -66,4 +65,8 @@ textarea{
     width: 100%;
     background-color:whitesmoke;
     font-size: 20px;
+}
+
+.listdiv{
+ min-height:200px;
 }
