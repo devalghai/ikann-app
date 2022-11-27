@@ -1,7 +1,8 @@
-from app import db,api
+from app import db,api,jwt,app
 from datetime import date,datetime,timedelta
 from flask_restful import Resource,reqparse
 from flask import jsonify, make_response
+from flask_jwt_extended import jwt_required,get_jwt_identity
 import bcrypt
 
 
@@ -14,11 +15,12 @@ class User(db.Model,Resource):
     email = db.Column(db.String,nullable=False,unique = True)
     lists = db.relationship("List",backref="user")
 
-    def get(self,userid):
+    @jwt_required()
+    def get(self):
+        userid = get_jwt_identity()
         user = User.query.filter_by(userid = userid).first()
         if user:
-            return {"userid":user.userid,
-                    "username":user.username,
+            return {"username":user.username,
                     "email":user.email}
 
     def post(self):
@@ -72,17 +74,25 @@ class List(db.Model,Resource):
     content = db.Column(db.String)
     cards = db.relationship("Card",backref="list")
 
-
+    @jwt_required()
     def get(self,listid):
         list = List.query.filter_by(listid = listid).first()
+        if list and list.user.userid != get_jwt_identity():
+            return make_response("Unauthorised",401)
+
         if list:
             return {"listid":list.listid,
                     "listname":list.listname,
                     "userid":list.userid,
                     "content":list.content}
 
-
+    @jwt_required()
     def delete(self,listid):
+
+        list = List.query.filter_by(listid = listid).first()
+        if list and list.user.userid != get_jwt_identity():
+            return make_response("Unauthorised",401)
+
 
         try:
             List.query.filter_by(listid = listid).delete()
@@ -91,6 +101,7 @@ class List(db.Model,Resource):
         finally:
             db.session.commit()
 
+    @jwt_required()
     def put(self,listid):
         parser = reqparse.RequestParser()
         parser.add_argument('content')
@@ -98,6 +109,9 @@ class List(db.Model,Resource):
         args = parser.parse_args()
 
         list = List.query.filter_by(listid = listid).first()
+        if list and list.user.userid != get_jwt_identity():
+            return make_response("Unauthorised",401)
+
         list.listname = args.get('name')
         list.content = args.get('content')
         try:
@@ -106,14 +120,14 @@ class List(db.Model,Resource):
             db.session.rollback()
         finally:
             db.session.commit()
-
+    
+    @jwt_required()
     def post(self):
-        parser = reqparse.RequestParser()
-        parser.add_argument('userid')
-        args = parser.parse_args()
+        
+        userid = get_jwt_identity()
 
         list = List(listname = "New List",
-                    userid = args.get('userid'),
+                    userid = userid,
                     content = "New Content")
 
         try:
@@ -141,8 +155,11 @@ class Card(db.Model,Resource):
     cardtitle = db.Column(db.String)
     cardcontent = db.Column(db.String)
 
+    @jwt_required()
     def get(self,cardid):
         card = Card.query.filter_by(cardid = cardid).first()
+        if card and card.list.user.userid != get_jwt_identity():
+            return make_response("Unauthorised",401)
         if card:
             return {"cardid":card.cardid,
                     "listid":card.listid,
@@ -152,11 +169,16 @@ class Card(db.Model,Resource):
                     "cardtitle":card.cardtitle,
                     "cardcontent":card.cardcontent}
 
-
+    @jwt_required()
     def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument('listid')
         args = parser.parse_args()
+
+        list = List.query.filter_by(listid = args.get('listid')).first()
+        if list and list.user.userid != get_jwt_identity():
+            return make_response("Unauthorised",401)
+
         card = Card(   
                     listid = args.get('listid'),
                     createdate = date.today(),
@@ -172,8 +194,11 @@ class Card(db.Model,Resource):
         finally:
             db.session.commit()
         
-
+    @jwt_required()
     def delete(self,cardid):
+        card = Card.query.filter_by( cardid = cardid).first()
+        if card and card.list.user.userid != get_jwt_identity():
+            return make_response("Unauthorised",401)
         
         try:
             Card.query.filter_by(cardid = cardid).delete()
@@ -182,6 +207,7 @@ class Card(db.Model,Resource):
         finally:
             db.session.commit()
 
+    @jwt_required()
     def put(self,cardid):
 
         parser = reqparse.RequestParser()
@@ -193,6 +219,9 @@ class Card(db.Model,Resource):
         args = parser.parse_args()
 
         card = Card.query.filter_by( cardid = cardid).first()
+        
+        if card and card.list.user.userid != get_jwt_identity():
+            return make_response("Unauthorised",401)
 
         card.listid = args.get('listid',"")
         card.enddate = args.get('enddate',"")
@@ -211,11 +240,14 @@ class Card(db.Model,Resource):
 
 
 
-@api.resource("/list/user/<int:userid>")
+@api.resource("/list/user")
 class Userlist(Resource):
+    
 
-    def get(self,userid):
-        lists = List.query.filter_by(userid = userid).all()
+    @jwt_required()
+    def get(self):
+        current_userid = get_jwt_identity()
+        lists = List.query.filter_by(userid = current_userid).all()
         if not lists:
             return None
         response = []
@@ -232,8 +264,15 @@ class Userlist(Resource):
 @api.resource("/card/list/<int:listid>")
 class Listcard(Resource):
 
+    @jwt_required()
     def get(self,listid):
+
+        list = List.query.filter_by(listid = listid).first()
+        if list and list.user.userid != get_jwt_identity():
+            return make_response("Unauthorised",401)
+        
         cards = Card.query.filter_by(listid = listid).all()
+        
         if not cards:
             return None
         response = []

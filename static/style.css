@@ -8,7 +8,7 @@ body{
 }
 
 #vueapp{
-    margin-top: 10%;
+    margin-top: 5%;
 }
 .card{
     min-height: var(--cardheight);
@@ -70,3 +70,4 @@ textarea{
 .listdiv{
  min-height:200px;
 }
+

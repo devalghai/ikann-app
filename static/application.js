@@ -1,8 +1,9 @@
 Vue.use(VueRouter)
 
 
+
 var store={
-    userid:null
+    token:null
 }
 
 
@@ -33,7 +34,7 @@ const Home = Vue.component('login-page',{
     methods:{
         login: async function(){
             var response = await fetch('/authenticate',{
-                method:'PUT',
+                method:'POST',
                 headers:{
                     'Content-type':'application/json'
                 },
@@ -44,7 +45,8 @@ const Home = Vue.component('login-page',{
             if(response.status === 200){
                 const data = await response.json()
                 if(data.token){
-                    this.$router.push(`/kanban/${data.userid}`)
+                    store.token = data.token
+                    this.$router.push(`/kanban`)
                 }
             }
             else{
@@ -114,6 +116,7 @@ const Signup= Vue.component('signup-page',{
         }
     }
 })
+
 
 
 const Card = Vue.component('card',{
@@ -191,11 +194,12 @@ methods:{
         const response = await fetch(`/card/${cardid}`,{
             method: 'DELETE',
             headers: {
-            'Content-type': 'application/json'
+            'Content-type': 'application/json',
+            'Authorization' : `Bearer ${store.token}`
             }            
         })
         
-        populatecards(store.userid)  
+        populatecards()  
     },
 
     editCard:function(){
@@ -224,11 +228,12 @@ methods:{
             await fetch(`/card/${this.cardobj.cardid}`,{
             method: 'PUT',
             headers: {
-              'Content-type': 'application/json'
+              'Content-type': 'application/json',
+              'Authorization' : `Bearer ${store.token}`
             },
             body: JSON.stringify(newvalue)
           })
-          populatecards(store.userid)
+          populatecards()
         }
 },
 
@@ -272,12 +277,12 @@ const List = Vue.component('list',{
             v-model=newlistcontent v-bind:placeholder="newlistcontent" @dblclick=editlist @keyup.enter=editlist maxlength="25">
             </li>
         </ul>
-        <card v-for="card in list.cards" :key=card.cardid :cardobj=card ref="card">
-        </card>
         <div class="row">
         <button type=button class="btn" v-on:click="addCard(list.id)"><i class="bi bi-plus-square"></i></button>
         <button type=button class="btn" v-if=isempty style="color:red" title="Delete list" @click="deletelist"><i class="bi bi-folder-minus"></i></button>
         </div>
+        <card v-for="card in list.cards" :key=card.cardid :cardobj=card ref="card">
+        </card>
     </div>  `
 ,
 methods:{
@@ -305,40 +310,44 @@ methods:{
         const response = await fetch('/card', {
             method: 'POST',
             headers: {
-              'Content-type': 'application/json'
+              'Content-type': 'application/json',
+              'Authorization' : `Bearer ${store.token}`
             },
             body: JSON.stringify({listid:listid})
           })
-          populatecards(store.userid)
+          populatecards()
     },
 
     updatecard: async function(newvalue){
         const response = await fetch(`/card/${newvalue.cardid}`,{
         method: 'PUT',
         headers: {
-          'Content-type': 'application/json'
+          'Content-type': 'application/json',
+          'Authorization' : `Bearer ${store.token}`
         },
         body: JSON.stringify(newvalue)
       })
-      populatecards(store.userid)
+      populatecards()
     },
 
     updatelist: async function(newvalue){
         const response = await fetch(`/list/${newvalue.id}`,{
             method: 'PUT',
             headers:{
-                'Content-type': 'application/json'
+                'Content-type': 'application/json',
+                'Authorization' : `Bearer ${store.token}`
             },
             body: JSON.stringify(newvalue)
         })
-        populatecards(store.userid)
+        populatecards()
     },
     deletelist:async function(){
         const response = await fetch(`/list/${this.list.id}`,{
             method: 'DELETE',
-            headers: {'Content-type': 'application/json'}         
+            headers: {'Content-type': 'application/json',
+            'Authorization' : `Bearer ${store.token}`}         
         })
-        populatecards(store.userid)
+        populatecards()
     }
 
 },
@@ -357,45 +366,183 @@ methods:{
     }
 })
 
+
+const Activity = Vue.component('activity',{
+    template:`
+    <div>
+        
+        <div class="container-fluid" id="activity">
+        <!--// WELCOME SECTION STARTS-->
+            <div class="row justify-content-center" id="welcome">
+                <div class="col-12  text-center">
+                    <div class="display-2 mb-2">Welcome <span style="color:blueviolet;">{{username }}</span></div>
+                </div>
+            </div>
+            <div class="row justify-content-center mb-3">
+                <div class="col-2 text-center">
+                <button type="button" class="btn" style='font-size:35px;' @click="kanban"><i class="bi bi-card-checklist"></i></button>
+                </div>
+                <div class="col-2 text-center">
+                <button type="button" class="btn" style='font-size:35px;' @click="logout"><i class="bi bi-box-arrow-right "></i></button><br>
+                </div>
+            </div>
+        <!--// CHART SECTION STARTS--> 
+            <div class="row chart-container justify-content-center " style="position: relative; height:10vh; width:20vw;margin: 0 auto;">
+                <canvas id="myChart"></canvas>
+            </div>
+            <div class="row" style="min-height:200px"></div>           
+        </div>
+    </div>`,
+
+    data:function(){
+        return {
+            listdata:[]
+        }
+    },
+
+    computed:{
+        date:function(){
+            let date = new Date().toLocaleDateString().split("/")
+            return `${date[2]}-${date[0]}-${date[1]}`
+        },
+    },
+
+    methods:{
+        logout:function(){
+            this.$router.push("/")
+        },
+        kanban:function(){
+            this.$router.push("/kanban")
+        }
+    },
+    async beforeCreate(){
+        var lists = await fetch(`/list/user`,{
+            method : 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization' : `Bearer ${store.token}`
+            }
+        }
+    ).then(data => data.json()).then(data => data)
+    
+    let completed = 0
+    let overdue = 0
+    let todo = 0
+
+    if(lists){
+        for (let list of lists){
+            var cards = await fetch(`/card/list/${list.listid}`,{
+                                                    method : 'GET',
+                                                    headers: {
+                                                        'Content-Type': 'application/json',
+                                                        'Authorization' : `Bearer ${store.token}`
+                                                    }
+                                                }
+                                            ).then(data => data.json()).then(data => data)
+
+                    if (cards){
+                            for (let card of cards){
+                                if (card.enddate != "-"){ completed+=1}
+                                else if(card.deadline >= this.date){todo+=1}
+                                else {overdue+= 1}
+                            }
+                        }
+                    }
+                }
+
+        const ctx = document.getElementById('myChart');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+            labels: ['Completed','Overdue','To-Do'],
+            datasets: [{
+                label: 'Tasks left',
+                data: [completed,overdue,todo],
+                backgroundColor: [
+                    '#3976D3',
+                    '#800000',
+                    'green'
+                  ],
+                borderWidth: 1,
+                hoverOffset: 4
+            }]
+            }
+        })
+        
+            },
+    data:function(){
+        return {
+            username:this.$root.username
+        }
+    }
+})
+
+
+
 const Kanban = Vue.component('kanban',{
-    props:['userid'],
     template:
     `
-    <div class="container-fluid ml-5" id="kanban">
-        <div class="row justify-content-center">
-            <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>
-            <list v-for="list in lists" v-bind:list=list v-bind:key=list.id></list>
-            <div class="col-xl-1 col-lg-1 col-sm-1 col-md-1 col-xs-1 shadow-sm  listdiv" v-for="list in emptylist">
-            <button class='form-control' id='addlist' @click=addlist><i class="bi bi-plus-circle"></i></button>
+    <div>
+        
+        <div class="container-fluid" id="kanban" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent>
+        <!--// WELCOME SECTION STARTS-->
+            <div class="row justify-content-center" id="welcome">
+                <div class="col-12  text-center">
+                    <div class="display-2  mb-2">Welcome <span style="color:blueviolet;">{{username }}</span></div>
+                </div>
             </div>
-            
-            <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>
+            <div class="row justify-content-center">
+                <div class="col-2 text-center">
+                <button type="button" class="btn" style='font-size:35px;' @click="activity"><i class="bi bi-activity"></i></button>
+                </div>
+                <div class="col-2 text-center">
+                <button type="button" class="btn" style='font-size:35px;' @click="logout"><i class="bi bi-box-arrow-right "></i></button><br>
+                </div>
+            </div>
+        <!--// BOARD SECTION STARTS--> 
+            <div class="row justify-content-center">
+                <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent>
+                </div>
+                <list v-for="list in lists" v-bind:list=list v-bind:key=list.id></list>
+                <div class="col-xl-1 col-lg-1 col-sm-1 col-md-1 col-xs-1 shadow-sm  listdiv" v-for="list in emptylist">
+                <button class='form-control' id='addlist' @click=addlist><i class="bi bi-plus-circle"></i></button>
+                </div>
+                <div id="dropzone" class="col-xl-1" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent>
+                </div>
+            </div>
+            <div class="row" style="min-height:200px" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>           
         </div>
-        <div class="row" style="min-height:200px" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent></div>           
     </div>`,
 data:function(){
     return {
-        lists:{}
+        lists:{},
+        username:this.$root.username
     }
 },
 methods:{
+    activity:function(){
+        this.$router.push('/activity')
+    },
+    logout:function(){
+        this.$router.push(`/`)
+    },
     addlist: async function(){
-        let userid = store.userid
         await fetch(`/list`,{
             method: 'POST',
             headers:{
-            'Content-type': 'application/json'
-            },
-            body:JSON.stringify({userid:userid})
+            'Content-type': 'application/json',
+            'Authorization' : `Bearer ${store.token}`
+            }
         })
         populatecards(store.userid)
     },
     deleteCard:function(event){
         deletecard(event)}
 },
-async mounted(){
-    store.userid = this.userid
-    populatecards(store.userid)
+async beforeCreate(){
+    populatecards()
+    getusername()
+
 },
 computed:{
     emptyspace:function(){
@@ -413,7 +560,8 @@ computed:{
 const routes = [
     { path: '/', component: Home },
     { path: '/signup', component: Signup },
-    { path: '/kanban/:userid' , component: Kanban,props : true}
+    { path: '/kanban' , component: Kanban,props : true},
+    { path: '/activity' , component: Activity}
   ]
 
 const router = new VueRouter({routes,mode: 'history',})
@@ -430,25 +578,46 @@ var app = new Vue({
             const response = await fetch(`/card/${cardid}`,{
                 method: 'DELETE',
                 headers: {
-                'Content-type': 'application/json'
+                'Content-type': 'application/json',
+                'Authorization' : `Bearer ${store.token}`
                 }            
             })
             
             populatecards(store.userid)
         }
+    },
+    data:function(){
+        return {
+            username:""
+        }
     }
 })
 
 
- async function populatecards(userid){
-
-        var lists = await (await fetch(`/list/user/${userid}`)).json()
+ async function populatecards(){
+        var lists = await (await fetch(`/list/user`,{
+                                                        method : 'GET',
+                                                        headers: {
+                                                            'Content-Type': 'application/json',
+                                                            'Authorization' : `Bearer ${store.token}`
+                                                        }
+                                                    }
+                                        )
+                        ).json()
 
     var allcards = {}
 
     if(lists){
     for (let list of lists){
-        var cards = await (await fetch(`/card/list/${list.listid}`)).json()
+        var cards = await (await fetch(`/card/list/${list.listid}`,{
+                                                                        method : 'GET',
+                                                                        headers: {
+                                                                            'Content-Type': 'application/json',
+                                                                            'Authorization' : `Bearer ${store.token}`
+                                                                        }
+                                                                    }
+                                        )
+                        ).json()
         
         if (cards){
             cards.sort(function(card1,card2){
@@ -465,6 +634,24 @@ var app = new Vue({
     app.$refs.kanban.lists = allcards
  }
 
+ async function getusername(){
+
+        const response = await fetch(`/user`,{
+            method: 'GET',
+            headers: {
+            'Content-type': 'application/json',
+            'Authorization' : `Bearer ${store.token}`
+            }            
+        }).then(data => data.json())
+        .then(data => data)
+
+        
+        app.$refs.kanban.username = response.username
+        app.username = response.username
+        
+
+}
+
  async function deletecard(event){
     var dropcard = event.dataTransfer.getData('text/plain')
         dropcard = JSON.parse(dropcard)
@@ -472,9 +659,10 @@ var app = new Vue({
         const response = await fetch(`/card/${cardid}`,{
             method: 'DELETE',
             headers: {
-            'Content-type': 'application/json'
+            'Content-type': 'application/json',
+            'Authorization' : `Bearer ${store.token}`
             }            
         })
-        populatecards(store.userid)
+        populatecards()
 
 }
