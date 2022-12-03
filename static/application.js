@@ -183,6 +183,7 @@ computed:{
     },
     date:function(){
         let date = new Date().toLocaleDateString().split("/")
+        if (date[1].length == 1){date[1] = 0+date[1]}
         return `${date[2]}-${date[0]}-${date[1]}`
     }
 },
@@ -403,7 +404,8 @@ const Activity = Vue.component('activity',{
     computed:{
         date:function(){
             let date = new Date().toLocaleDateString().split("/")
-            return `${date[2]}-${date[0]}-${date[1]}`
+        if (date[1].length == 1){date[1] = 0+date[1]}
+        return `${date[2]}-${date[0]}-${date[1]}`
         },
     },
 
@@ -484,18 +486,24 @@ const Kanban = Vue.component('kanban',{
     `
     <div>
         
-        <div class="container-fluid" id="kanban" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent>
+        <div class="container-fluid" id="kanban" >
         <!--// WELCOME SECTION STARTS-->
-            <div class="row justify-content-center" id="welcome">
+            <div class="row justify-content-center mb-2" id="welcome" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent>
                 <div class="col-12  text-center">
                     <div class="display-2  mb-2">Welcome <span style="color:blueviolet;">{{username }}</span></div>
                 </div>
             </div>
-            <div class="row justify-content-center">
-                <div class="col-2 text-center">
+            <div class="row justify-content-center m-5" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent>
+                <div class="col-1 text-center">
                 <button type="button" class="btn" style='font-size:35px;' @click="activity"><i class="bi bi-activity"></i></button>
                 </div>
-                <div class="col-2 text-center">
+                <div class="col-1 text-center">
+                <button type="button" class="btn" style='font-size:35px;' @click="mailreport"><i class="bi bi-send"></i></button>
+                </div>
+                <div class="col-1 text-center">
+                <button type="button" class="btn" style='font-size:35px;' @click="activity"><i class="bi bi-lightbulb"></i></i></button>
+                </div>
+                <div class="col-1 text-center">
                 <button type="button" class="btn" style='font-size:35px;' @click="logout"><i class="bi bi-box-arrow-right "></i></button><br>
                 </div>
             </div>
@@ -520,6 +528,15 @@ data:function(){
     }
 },
 methods:{
+    mailreport: async function(){
+        await fetch(`/mail`,{
+            method: 'POST',
+            headers:{
+            'Content-type': 'application/json',
+            'Authorization' : `Bearer ${store.token}`
+            }
+        })
+    },
     activity:function(){
         this.$router.push('/activity')
     },
