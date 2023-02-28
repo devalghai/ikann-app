@@ -161,6 +161,9 @@ const Card = Vue.component('card',{
                             title="Mark Completed" v-model=checkbox :checked="checkbox"> 
                         </div>
                     </div>
+                    <div class="text-left">
+                        <button type=button class="btn" @click=exportcard><i class="bi bi-envelope"></i></button>
+                    </div>
                     
                 </div>
             </div>
@@ -184,11 +187,25 @@ computed:{
     date:function(){
         let date = new Date().toLocaleDateString().split("/")
         if (date[1].length == 1){date[1] = 0+date[1]}
+        if (date[0].length == 1){date[0] = 0+date[0]}
         return `${date[2]}-${date[0]}-${date[1]}`
     }
 },
 
 methods:{
+    exportcard:async function(){
+        fetch('/exportcard',{
+            method: 'POST',
+            headers: {
+                'Content-type' : 'application/json',
+                'Authorization' : `Bearer ${store.token}`
+            },
+            body:JSON.stringify({cardid:this.cardobj.cardid})
+        }).then(response => response.json()).then(data => {
+            if(data){ alert(`Card ${this.cardobj.cardtitle} has been mailed. `)}
+            else{ alert('Error encountered while sending card.')}
+        })
+    },
     
     deleteCard: async function(){
         var cardid = this.cardobj.cardid
@@ -199,8 +216,8 @@ methods:{
             'Authorization' : `Bearer ${store.token}`
             }            
         })
-        
-        populatecards()  
+        populatecards()
+        setTimeout(this.$parent.renderchart,2000)
     },
 
     editCard:function(){
@@ -224,6 +241,7 @@ methods:{
         event.dataTransfer.effectAllowed = 'move'
         card = JSON.stringify(card)
         event.dataTransfer.setData('text/plain', card)
+        setTimeout(this.$parent.renderchart,2000)
     },
     updatecard: async function(newvalue){
             await fetch(`/card/${this.cardobj.cardid}`,{
@@ -254,10 +272,12 @@ watch:{
     newdeadline:function(newvalue){
         this.cardobj.deadline = newvalue
         this.updatecard(this.cardobj)
+        setTimeout(this.$parent.renderchart,2000)
     },
     newenddate:function(newvalue){
         this.cardobj.enddate = this.newenddate
         this.updatecard(this.cardobj)
+        setTimeout(this.$parent.renderchart,2000)
     }
 }
 }
@@ -268,6 +288,23 @@ const List = Vue.component('list',{
     template:`
     <div  class="col-xl-2 col-lg-6 col-sm-12 col-md-12 col-xs-12 shadow-sm"  
             @drop.prevent="dropTarget($event)"  @dragenter.prevent @dragover.prevent :id="list.id">
+            <div class="justify-content-center" v-if="!isempty">
+            <canvas :id=chartid style="width:60%;"></canvas>
+            </div>
+            <div class="row justify-content-center">
+            <div class=col-4>
+                <h3>{{ this.completed }}</h3>
+                <p>Completed</p>
+            </div>
+            <div class=col-4>
+                <h3>{{ this.overdue }}</h3>
+                <p>Overdue</p>
+            </div>
+            <div class=col-4>
+                <h3>{{ this.todo }}</h3>
+                <p>To-do</p>
+            </div>
+            </div>
         <ul class="nav nav-tabs">
             <li class="nav-item">
             <div class="display-6 mb-1" id="title" v-if="listediting" @dblclick=editlist>{{ newlistname }}</div>
@@ -276,6 +313,9 @@ const List = Vue.component('list',{
             <div class="h6 mb-4" @dblclick=editlist v-if="listediting">{{ newlistcontent }}</div>
             <input class='form-control  mb-4' type=text v-else 
             v-model=newlistcontent v-bind:placeholder="newlistcontent" @dblclick=editlist @keyup.enter=editlist maxlength="25">
+            <div class="align-content-center">
+            <button type=button class="btn" @click=exportlist><i class="bi bi-envelope"></i></button>
+            </div>
             </li>
         </ul>
         <div class="row">
@@ -287,6 +327,19 @@ const List = Vue.component('list',{
     </div>  `
 ,
 methods:{
+    exportlist: async function(){
+            fetch('/exportlist',{
+            method: 'POST',
+            headers :{
+                'Content-type':'application/json',
+                'Authorization':`Bearer ${store.token}`
+            },
+            body: JSON.stringify({listid:this.list.id})
+        }).then(response => response.json()).then(data => {
+            if (data){alert(`List ${this.list.name} has been mailed.`)}
+            else{ alert("Error encountered while sending list!")}
+        })
+    },
     editlist:function(){
         this.listediting = !this.listediting
         if (this.listediting){
@@ -304,6 +357,7 @@ methods:{
                 dropcard.listid = newlistid
                 this.updatecard(dropcard)
         }
+        setTimeout(this.renderchart,2000)
     },
 
     addCard: async function(listid){
@@ -317,6 +371,7 @@ methods:{
             body: JSON.stringify({listid:listid})
           })
           populatecards()
+          setTimeout(this.renderchart,2000)  
     },
 
     updatecard: async function(newvalue){
@@ -328,7 +383,7 @@ methods:{
         },
         body: JSON.stringify(newvalue)
       })
-      populatecards()
+        populatecards()
     },
 
     updatelist: async function(newvalue){
@@ -340,7 +395,8 @@ methods:{
             },
             body: JSON.stringify(newvalue)
         })
-        populatecards()
+            populatecards()
+            
     },
     deletelist:async function(){
         const response = await fetch(`/list/${this.list.id}`,{
@@ -349,6 +405,70 @@ methods:{
             'Authorization' : `Bearer ${store.token}`}         
         })
         populatecards()
+
+    },
+    renderchart:function(){
+        let completed = 0
+        let overdue = 0
+        let todo = 0
+
+        for (let card of this.list['cards']){
+            if (card.enddate != "-"){ completed+=1}
+            else if(card.deadline >= this.date){todo+=1}
+            else {overdue+= 1}
+        }
+
+        this.completed = completed
+        this.overdue = overdue
+        this.todo = todo
+
+        var ctx = document.getElementById(this.chartid).getContext("2d");
+
+        try {
+            this.chart.destroy()
+        } catch (error) {
+            
+        }
+        var chart = new Chart(ctx, {
+            type: 'horizontalBar',
+            data: {
+            labels: ['Completed','Overdue','To-Do'],
+            datasets: [{
+                labels: [],
+                data: [completed,overdue,todo],
+                backgroundColor: [
+                    '#3976D3',
+                    '#800000',
+                    'green'
+                  ],
+            }]
+            },
+        options:{
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+            },
+            scales: {
+                xAxes: [{
+                    gridLines: {
+                        display:false
+                    },
+                    ticks: {
+                        beginAtZero: true,
+                        stepValue:1
+                    }
+                }],
+                yAxes: [{
+                    gridLines: {
+                        display:false
+                    }   
+                }]
+            },
+            legend: {
+                display: false
+            },
+        }
+        })
     }
 
 },
@@ -356,13 +476,34 @@ methods:{
         return {
             listediting:true,
             newlistname:this.list.name,
-            newlistcontent:this.list.content
+            newlistcontent:this.list.content,
+            chartid:"chart" + this.list.id,
+            completed:0,
+            overdue:0,
+            todo:0
         }
     },
     computed:{
         isempty:function(){
             return !this.list.cards
             
+        },
+        date:function(){
+            let date = new Date().toLocaleDateString().split("/")
+            if (date[1].length == 1){date[1] = 0+date[1]}
+            if (date[0].length == 1){date[0] = 0+date[0]}
+            return `${date[2]}-${date[0]}-${date[1]}`
+        }
+    },
+    mounted(){
+        this.renderchart()
+    },
+    watch:{
+        list:{
+            deep: true,
+            handler(){
+                // setTimeout(this.renderchart,2000)
+            }
         }
     }
 })
@@ -371,9 +512,8 @@ methods:{
 const Activity = Vue.component('activity',{
     template:`
     <div>
-        
         <div class="container-fluid" id="activity">
-        <!--// WELCOME SECTION STARTS-->
+             <!--// WELCOME SECTION STARTS-->
             <div class="row justify-content-center" id="welcome">
                 <div class="col-12  text-center">
                     <div class="display-2 mb-2">Welcome <span style="color:blueviolet;">{{username }}</span></div>
@@ -387,11 +527,17 @@ const Activity = Vue.component('activity',{
                 <button type="button" class="btn" style='font-size:35px;' @click="logout"><i class="bi bi-box-arrow-right "></i></button><br>
                 </div>
             </div>
-        <!--// CHART SECTION STARTS--> 
-            <div class="row chart-container justify-content-center " style="position: relative; height:10vh; width:20vw;margin: 0 auto;">
-                <canvas id="myChart"></canvas>
+            <!--// CHART SECTION STARTS--> 
+            <div class="container">
+                    <div class="row  justify-content-center" style=" height:300px; width:300px;margin:0 auto;">
+                        <canvas id="myChart"></canvas>
+                    </div>
+                    <div class="row chart-container justify-content-center mt-5" style="height:400px; width:1000px;margin: 0 auto;">
+                        <canvas id="lineChart"></canvas>
+                    </div>
+                <div class="row" style="min-height:200px">
+                </div>           
             </div>
-            <div class="row" style="min-height:200px"></div>           
         </div>
     </div>`,
 
@@ -430,7 +576,7 @@ const Activity = Vue.component('activity',{
     let completed = 0
     let overdue = 0
     let todo = 0
-
+    let date_count = {}
     if(lists){
         for (let list of lists){
             var cards = await fetch(`/card/list/${list.listid}`,{
@@ -444,7 +590,7 @@ const Activity = Vue.component('activity',{
 
                     if (cards){
                             for (let card of cards){
-                                if (card.enddate != "-"){ completed+=1}
+                                if (card.enddate != "-"){ completed+=1;date_count[card.enddate] = date_count[card.enddate] + 1 || 1}
                                 else if(card.deadline >= this.date){todo+=1}
                                 else {overdue+= 1}
                             }
@@ -453,6 +599,8 @@ const Activity = Vue.component('activity',{
                 }
 
         const ctx = document.getElementById('myChart');
+        const ctxl = document.getElementById('lineChart');
+
         new Chart(ctx, {
             type: 'doughnut',
             data: {
@@ -470,6 +618,37 @@ const Activity = Vue.component('activity',{
             }]
             }
         })
+        let dates = Object.keys(date_count).sort()
+        let completedtasks = []
+        for (let date of dates){
+            completedtasks.push(date_count[date])
+        }
+
+        let maxVal = Math.max(...completedtasks)
+
+        new Chart(ctxl,{
+            type: 'line',
+            data:{
+                labels:dates,
+                datasets:[{
+                    label:"Task Completed",
+                    borderColor: 'green',
+                    data: completedtasks
+                }]
+            },
+            options: {
+                scales: {
+                    yAxes: [{
+                            display: true,
+                            ticks: {
+                                beginAtZero: true,
+                                stepValue:1,
+                                max: maxVal + 2
+                            }
+                        }]
+                }
+            }
+    })
         
             },
     data:function(){
@@ -479,6 +658,88 @@ const Activity = Vue.component('activity',{
     }
 })
 
+
+
+const User = Vue.component('user',{
+    template:
+    `
+    <div>  
+        <div class="container-fluid">
+            <div class="row justify-content-center mb-2" id="welcome" @drop="deleteCard($event)"  @dragenter.prevent @dragover.prevent>
+                <div class="col-12  text-center">
+                    <div class="display-2  mb-2">Welcome <span style="color:blueviolet;">{{username }}</span></div>
+                </div>
+            </div>
+            <div class="row justify-content-center mb-3">
+                <div class="col-2 text-center">
+                    <button type="button" class="btn" style='font-size:35px;' @click="kanban"><i class="bi bi-card-checklist"></i></button>
+                </div>
+                <div class="col-2 text-center">
+                    <button type="button" class="btn" style='font-size:35px;' @click="logout"><i class="bi bi-box-arrow-right "></i></button><br>
+                </div>
+            </div>
+            <div class="container w-50">
+                <div class="form-control row p-4">
+                    <div class="form-control mb-5 p-4">
+                        <label class=" form-label m-2">Change password</label>
+                        <input class="form-control m-2" type="password" placeholder='Enter current password' v-model=currentpassword>
+                        <input class="form-control m-2" type="password" placeholder='Enter new password' v-model=newpassword>
+                        <button type="button" class="btn btn-primary m-2" @click=changepassword>Change password</button>
+                    </div>
+                    <div class="form-control mt-5 p-4">
+                        <label class=" form-label m-2">Delete account</label>
+                        <input class="form-control m-2" type="password" placeholder='Enter password to delete account'  v-model=deletepassword>
+                        <button type="button" class="btn btn-danger m-2" @click=deleteaccount>Delete account</button>
+                    </div>    
+                </div>
+            </div>
+        </div>
+    </div>
+    `,
+    data:function(){
+        return {
+            username:this.$root.username,
+            currentpassword:'',
+            newpassword:'',
+            deletepassword:''
+        }
+    },
+    methods:{
+        logout:function(){
+            this.$router.push("/")
+        },
+        kanban:function(){
+            this.$router.push("/kanban")
+        },
+        changepassword: async function(){
+            fetch('/changepassword',{
+                'method' : 'PUT',
+                headers:{
+                    'Content-type': 'application/json',
+                    'Authorization' : `Bearer ${store.token}`
+                    },
+                body: JSON.stringify({'newpassword':this.newpassword,
+                                    'currentpassword':this.currentpassword})
+            }).then(response => response.json()).then(data => {
+                if(data){ alert('Password has been changed!')}
+                else {alert('Please check current password!')}
+            })
+        },
+        deleteaccount: async function(){
+            fetch('/deleteaccount',{
+                'method' : 'PUT',
+                headers:{
+                    'Content-type': 'application/json',
+                    'Authorization' : `Bearer ${store.token}`
+                    },
+                body: JSON.stringify({'deletepassword':this.deletepassword})
+            }).then(response => response.json()).then(data => {
+                if(data){ this.$router.push('/')}
+                else {alert('Please enter correct password!')}
+            })
+        }
+    }
+})
 
 
 const Kanban = Vue.component('kanban',{
@@ -501,11 +762,12 @@ const Kanban = Vue.component('kanban',{
                 <button type="button" class="btn" style='font-size:35px;' @click="mailreport"><i class="bi bi-send"></i></button>
                 </div>
                 <div class="col-1 text-center">
-                <button type="button" class="btn" style='font-size:35px;' @click="activity"><i class="bi bi-lightbulb"></i></i></button>
+                <button type="button" class="btn" style='font-size:35px;' @click="user"><i class="bi bi-person"></i></button>
                 </div>
                 <div class="col-1 text-center">
-                <button type="button" class="btn" style='font-size:35px;' @click="logout"><i class="bi bi-box-arrow-right "></i></button><br>
+                <button type="button" class="btn" style='font-size:35px;' @click="logout"><i class="bi bi-box-arrow-right "></i></button>
                 </div>
+                
             </div>
         <!--// BOARD SECTION STARTS--> 
             <div class="row justify-content-center">
@@ -535,7 +797,13 @@ methods:{
             'Content-type': 'application/json',
             'Authorization' : `Bearer ${store.token}`
             }
-        })
+        }).then(res => res.json()).then(data => {
+            if (data){ alert("Report has been mailed.") }
+            else{ alert("Error encountered while sending report!")}
+        } )
+    },
+    user:function(){
+        this.$router.push('/user')
     },
     activity:function(){
         this.$router.push('/activity')
@@ -551,7 +819,7 @@ methods:{
             'Authorization' : `Bearer ${store.token}`
             }
         })
-        populatecards(store.userid)
+        populatecards()
     },
     deleteCard:function(event){
         deletecard(event)}
@@ -578,7 +846,8 @@ const routes = [
     { path: '/', component: Home },
     { path: '/signup', component: Signup },
     { path: '/kanban' , component: Kanban,props : true},
-    { path: '/activity' , component: Activity}
+    { path: '/activity' , component: Activity},
+    { path: '/user' , component: User}
   ]
 
 const router = new VueRouter({routes,mode: 'history',})
@@ -600,7 +869,7 @@ var app = new Vue({
                 }            
             })
             
-            populatecards(store.userid)
+            populatecards()
         }
     },
     data:function(){

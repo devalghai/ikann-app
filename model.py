@@ -1,9 +1,10 @@
-from app import db,api,jwt,app
-from datetime import date,datetime,timedelta
-from flask_restful import Resource,reqparse
-from flask import jsonify, make_response
-from flask_jwt_extended import jwt_required,get_jwt_identity
 import bcrypt
+from app import db,api
+from flask import jsonify, make_response
+from flask_restful import Resource,reqparse
+from datetime import date,datetime,timedelta
+from flask_jwt_extended import jwt_required,get_jwt_identity
+
 
 
 @api.resource("/user/<int:userid>","/user")
